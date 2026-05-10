@@ -21,9 +21,14 @@ export interface FacilityData {
   };
   wait_time?: number;
   rating?: number | null;
+  review_count?: number;
   status?: string;
   hours?: string;
   owning_agency?: string;
+  ward_number?: string;
+  zone?: string;
+  contractor_name?: string;
+  compliance_score?: number;
   total_stalls?: number;
   occupancy?: number;
 }
