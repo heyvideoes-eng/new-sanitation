@@ -6,6 +6,7 @@ export interface FacilityData {
   id: number;
   name: string;
   location: string;
+  address?: string;
   lat?: number;
   lng?: number;
   type?: string;

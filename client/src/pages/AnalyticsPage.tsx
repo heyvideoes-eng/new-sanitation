@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, Zap, TrendingUp, Search, Clock, ArrowLeft, BarChart3, PieChart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
