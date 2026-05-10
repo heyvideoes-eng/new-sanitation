@@ -1,6 +1,6 @@
 import cron from 'node-cron';
-import { db } from '../db/setup';
-import { io } from '../index';
+import { db } from '../db/setup.js';
+import { io } from '../index.js';
 
 export const initSensorJob = () => {
   cron.schedule('*/10 * * * * *', () => {

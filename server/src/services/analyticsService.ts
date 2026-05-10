@@ -1,4 +1,4 @@
-import { db } from '../db/setup';
+import { db } from '../db/setup.js';
 
 export const getFacilityHealthSummary = (facilityId: number) => {
   const latestStatus = db.prepare(`

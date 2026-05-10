@@ -1,6 +1,6 @@
 import express from 'express';
-import { db } from '../db/setup';
-import { getFacilityHealthSummary } from '../services/analyticsService';
+import { db } from '../db/setup.js';
+import { getFacilityHealthSummary } from '../services/analyticsService.js';
 
 const router = express.Router();
 
