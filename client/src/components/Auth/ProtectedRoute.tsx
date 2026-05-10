@@ -11,25 +11,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
   const { isAuthenticated, user, isLoading } = useAuth();
   const location = useLocation();
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-atmosBg flex items-center justify-center">
-        <div className="text-[10px] text-atmosAccent font-bold uppercase tracking-[0.5em] animate-pulse">
-          Validating Security Clearance...
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/" replace />;
-  }
-
+  // AUTH DISABLED AS REQUESTED
   return <>{children}</>;
+
+  /* Previous Auth Logic:
+  if (isLoading) {
+    ...
+  }
+  */
 };
 
 export default ProtectedRoute;

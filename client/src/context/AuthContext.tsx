@@ -28,15 +28,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const decoded: any = jwtDecode(token);
         if (decoded.exp * 1000 < Date.now()) {
-          logout();
+          // Keep session for demo purposes even if expired
+          const savedUser = localStorage.getItem('saaf_user');
+          if (savedUser) setUser(JSON.parse(savedUser));
         } else {
-          // In real app, fetch /me to get full profile
           const savedUser = localStorage.getItem('saaf_user');
           if (savedUser) setUser(JSON.parse(savedUser));
         }
       } catch (e) {
-        logout();
+        // Fallback to demo user
+        setUser({ id: 0, name: 'Guest Admin', role: 'admin' });
       }
+    } else {
+      // DEFAULT TO ADMIN FOR PASSWORD-LESS ACCESS
+      setUser({ id: 0, name: 'Guest Admin', role: 'admin' });
     }
     setIsLoading(false);
   }, [token]);

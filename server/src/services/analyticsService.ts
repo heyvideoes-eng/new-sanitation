@@ -63,32 +63,32 @@ export const getFacilityHealthSummary = (facilityId: number) => {
 
 export const getGlobalKPIs = () => {
   const totalFacilities = db.prepare('SELECT COUNT(*) as count FROM facilities').get() as any;
-  const openAlerts = db.prepare('SELECT COUNT(*) as count FROM maintenance_tasks WHERE completed_at IS NULL').get() as any;
-  const tasksInProgress = db.prepare('SELECT COUNT(*) as count FROM maintenance_tasks WHERE accepted_at IS NOT NULL AND completed_at IS NULL').get() as any;
+  const openAlerts = db.prepare("SELECT COUNT(*) as count FROM maintenance_tasks WHERE status != 'COMPLETED'").get() as any;
+  const tasksInProgress = db.prepare("SELECT COUNT(*) as count FROM maintenance_tasks WHERE status = 'IN_PROGRESS' OR status = 'ASSIGNED'").get() as any;
   
   const avgResponse = db.prepare(`
     SELECT AVG(response_time_mins) as avg 
     FROM budget_log 
-    WHERE logged_at >= date('now')
+    WHERE date(logged_at) = date('now')
   `).get() as any;
 
   const totalCost = db.prepare(`
     SELECT SUM(total_cost) as sum 
     FROM budget_log 
-    WHERE logged_at >= date('now')
+    WHERE date(logged_at) = date('now')
   `).get() as any;
 
   const totalUsers = db.prepare(`
     SELECT SUM(current_users) as sum 
     FROM crowd_queue 
-    WHERE timestamp >= datetime('now', '-24 hours')
+    WHERE datetime(timestamp) >= datetime('now', '-24 hours')
   `).get() as any;
 
   return {
     total_facilities: totalFacilities.count,
     open_alerts: openAlerts.count,
     tasks_in_progress: tasksInProgress.count,
-    avg_response_time_mins_today: Math.round(avgResponse.avg || 0 * 10) / 10,
+    avg_response_time_mins_today: Math.round((avgResponse.avg || 0) * 10) / 10,
     today_cost_inr: totalCost.sum || 0,
     total_users_last_24h: totalUsers.sum || 0,
     overall_cleanliness_index: 85 // Mock aggregate for now

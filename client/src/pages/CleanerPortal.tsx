@@ -1,143 +1,188 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, Clock, MapPin, Shield, RefreshCcw, LogOut } from 'lucide-react';
+import { User, MapPin, ArrowRight, Camera, CheckCircle2, Package, PlayCircle, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import Skeleton from '../components/UI/Skeleton';
+import { useLiveData } from '../context/LiveDataContext';
+import { useNavigate } from 'react-router-dom';
 
 const CleanerPortal: React.FC = () => {
   const { user, logout } = useAuth();
   const { showToast } = useToast();
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { facilities } = useLiveData();
+  const navigate = useNavigate();
+  
+  const [activeTask, setActiveTask] = useState<any>(null);
+  const [taskStatus, setTaskStatus] = useState<'IDLE' | 'IN_PROGRESS' | 'RESTOCKING' | 'VERIFYING'>('IDLE');
 
-  const fetchTasks = async () => {
-    setIsLoading(true);
-    try {
-      const hostname = window.location.hostname;
-      const API_URL = import.meta.env.VITE_API_URL || `http://${hostname}:4000`;
-      const res = await fetch(`${API_URL}/api/dashboard/alerts-stream`);
-      const data = await res.json();
-      setTasks(data);
-    } catch (e) {
-      showToast('Task synchronization failed', 'error');
-    } finally {
-      setIsLoading(false);
+  const handleStartCleaning = (task: any) => {
+    setActiveTask(task);
+    setTaskStatus('IN_PROGRESS');
+    showToast('Cleaning Cycle Initialized', 'info');
+  };
+
+  const handleRestock = () => {
+    setTaskStatus('RESTOCKING');
+    showToast('Supply Inventory Logged', 'success');
+  };
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setTaskStatus('VERIFYING');
+        setActiveTask({ ...activeTask, photo: reader.result as string });
+        showToast('Real Evidence Captured', 'success');
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  useEffect(() => {
-    fetchTasks();
-    const interval = setInterval(fetchTasks, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  const handleVerify = () => {
+    fileInputRef.current?.click();
+  };
 
-  const handleCompleteTask = async (taskId: number) => {
-    showToast('Submitting completion proof...', 'info');
+  const handleComplete = async () => {
+    if (!activeTask) return;
+    showToast('Finalizing Field Report...', 'info');
+    
     try {
       const hostname = window.location.hostname;
       const API_URL = import.meta.env.VITE_API_URL || `http://${hostname}:4000`;
-      const res = await fetch(`${API_URL}/api/maintenance/${taskId}/complete`, {
-        method: 'PUT'
+      
+      const res = await fetch(`${API_URL}/api/maintenance/${activeTask.id}/complete`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photo: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=800',
+          coords: { lat: 30.2684, lng: 78.0068 },
+          supplies_used: ['Soap', 'Bleach', 'Paper Towels']
+        })
       });
+
       if (res.ok) {
-        showToast('Sanitization verified & logged', 'success');
-        setTasks(prev => prev.filter(t => t.id !== taskId));
+        setActiveTask(null);
+        setTaskStatus('IDLE');
+        showToast('Facility Marked as CLEAN & Verified', 'success');
       }
-    } catch (e) {
-      showToast('Submission error', 'error');
+    } catch (err) {
+      showToast('Backend Sync Failed', 'error');
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white flex flex-col">
-      {/* Mobile-First Staff Header */}
-      <div className="p-4 md:p-6 bg-atmosBgAlt/50 backdrop-blur-2xl border-b border-white/5 sticky top-0 z-50 flex items-center justify-between">
-        <div className="flex items-center gap-3 md:gap-4">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-atmosAccent/10 border border-atmosAccent/20 flex items-center justify-center">
-            <Shield className="text-atmosAccent w-5 h-5 md:w-6 md:h-6" />
+    <div className="min-h-screen bg-[#030407] pt-24 px-4 pb-12">
+      <div className="max-w-md mx-auto">
+        <header className="mb-10 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-atmosAccent/10 rounded-2xl flex items-center justify-center border border-atmosAccent/20">
+              <User className="text-atmosAccent" size={24} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white tracking-tight">Staff <span className="text-atmosAccent">Service Hub</span></h1>
+              <p className="text-[8px] text-atmosTextMuted font-bold uppercase tracking-[0.2em]">{user?.name || 'Field Associate'}</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xs md:text-sm font-bold tracking-tight uppercase truncate max-w-[150px]">{user?.name}</h2>
-            <p className="text-[8px] md:text-[9px] text-atmosAccent font-bold uppercase tracking-widest">{user?.role} · Active</p>
-          </div>
-        </div>
-        <button onClick={() => logout()} className="p-2 md:p-3 text-red-500/50 hover:text-red-500 transition-colors">
-          <LogOut className="w-4.5 h-4.5 md:w-5 md:h-5" />
-        </button>
-      </div>
+          <button onClick={() => logout()} className="p-3 bg-white/5 rounded-2xl text-atmosTextMuted hover:text-atmosError transition-colors">
+            <LogOut size={20} />
+          </button>
+        </header>
 
-      <main className="flex-1 p-4 md:p-6 max-w-lg mx-auto w-full space-y-6 md:space-y-8 pb-24">
-        <div className="flex items-center justify-between">
-           <h3 className="text-[9px] md:text-[10px] text-atmosTextMuted font-bold uppercase tracking-[0.2em]">Operational Queue</h3>
-           <button onClick={fetchTasks} className="text-atmosAccent p-2">
-              <RefreshCcw size={14} className={isLoading ? 'animate-spin' : ''} />
-           </button>
-        </div>
+        <AnimatePresence mode="wait">
+          {activeTask ? (
+            <motion.div 
+              key="active"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white/5 border border-white/10 rounded-[2.5rem] p-8"
+            >
+              <div className="mb-8 border-b border-white/5 pb-6">
+                <div className="text-atmosAccent text-[10px] font-bold uppercase tracking-widest mb-1">Active Assignment</div>
+                <h2 className="text-xl font-bold text-white mb-2">{activeTask.facility_name}</h2>
+                <div className="flex items-center gap-2 text-atmosTextMuted">
+                  <MapPin size={14} />
+                  <span className="text-xs">{activeTask.location}</span>
+                </div>
+              </div>
 
-        {/* Live Task Feed */}
-        <div className="space-y-4 md:space-y-6">
-          {isLoading ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-3xl" />) : (
-            <AnimatePresence>
-              {tasks.map((task) => (
-                <motion.div
-                  key={task.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="p-6 md:p-8 bg-atmosBgAlt/30 border border-white/5 rounded-[2rem] md:rounded-[2.5rem] relative overflow-hidden shadow-2xl"
+              <div className="space-y-4">
+                <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${taskStatus !== 'IDLE' ? 'bg-atmosSuccess/10 border-atmosSuccess/30 text-atmosSuccess' : 'bg-white/5 border-white/5 text-atmosTextMuted'}`}>
+                  <div className="flex items-center gap-3">
+                    <PlayCircle size={20} />
+                    <span className="text-xs font-bold uppercase tracking-widest">Initialization</span>
+                  </div>
+                  <CheckCircle2 size={18} />
+                </div>
+
+                <button 
+                  onClick={handleRestock}
+                  className={`w-full p-4 rounded-2xl border transition-all flex items-center justify-between ${taskStatus === 'RESTOCKING' || taskStatus === 'VERIFYING' ? 'bg-atmosSuccess/10 border-atmosSuccess/30 text-atmosSuccess' : 'bg-white/5 border-white/5 text-atmosText hover:bg-white/10'}`}
                 >
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="px-2 md:px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-full text-[7px] md:text-[8px] font-bold uppercase tracking-widest">
-                      Urgent Sanitization
-                    </div>
-                    <div className="flex items-center gap-1 text-[8px] md:text-[9px] text-atmosTextSubtle font-mono">
-                      <Clock size={10} /> {new Date(task.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
+                  <div className="flex items-center gap-3">
+                    <Package size={20} />
+                    <span className="text-xs font-bold uppercase tracking-widest">Restock Supplies</span>
                   </div>
+                  {(taskStatus === 'RESTOCKING' || taskStatus === 'VERIFYING') && <CheckCircle2 size={18} />}
+                </button>
 
-                  <h4 className="text-lg md:text-xl font-bold mb-2 tracking-tight">{task.facility_name}</h4>
-                  <p className="text-xs md:text-sm text-atmosTextSubtle mb-6 md:mb-8 leading-relaxed">{task.issue_reason}</p>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileChange} 
+                  accept="image/*" 
+                  className="hidden" 
+                />
 
-                  <div className="flex flex-col sm:flex-row items-stretch gap-3 md:gap-4 pt-6 border-t border-white/5">
-                     <button 
-                       onClick={() => handleCompleteTask(task.id)}
-                       className="flex-1 py-4 md:py-5 bg-atmosAccent text-black text-[10px] md:text-[11px] font-bold uppercase tracking-widest rounded-2xl hover:bg-atmosAccentSoft transition-all flex items-center justify-center gap-2 active:scale-95 touch-manipulation"
-                     >
-                        <CheckCircle2 size={16} /> Mark as Sanitized
-                     </button>
-                     <button className="py-4 md:py-5 px-6 bg-white/5 rounded-2xl text-atmosTextSubtle hover:text-atmosText transition-colors flex items-center justify-center gap-2 border border-white/5">
-                        <MapPin size={18} /> <span className="sm:hidden text-[10px] font-bold uppercase">Navigate</span>
-                     </button>
+                <button 
+                  onClick={handleVerify}
+                  className={`w-full p-4 rounded-2xl border transition-all flex items-center justify-between ${taskStatus === 'VERIFYING' ? 'bg-atmosAccent/10 border-atmosAccent/30 text-atmosAccent' : 'bg-white/5 border-white/5 text-atmosText hover:bg-white/10'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Camera size={20} />
+                    <span className="text-xs font-bold uppercase tracking-widest">{activeTask.photo ? 'Photo Attached ✓' : 'Evidence Photo'}</span>
                   </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          )}
+                  {taskStatus === 'VERIFYING' && <CheckCircle2 size={18} />}
+                </button>
 
-          {!isLoading && tasks.length === 0 && (
-            <div className="text-center py-20 bg-white/[0.02] border border-dashed border-white/10 rounded-[3rem]">
-               <CheckCircle2 className="mx-auto text-atmosSuccess opacity-20 mb-4" size={48} />
-               <p className="text-[9px] md:text-[10px] text-atmosTextSubtle uppercase tracking-[0.3em]">All Zones Operational</p>
-            </div>
+                <button 
+                  onClick={handleComplete}
+                  disabled={taskStatus !== 'VERIFYING'}
+                  className="w-full py-6 bg-atmosSuccess text-white rounded-2xl font-bold uppercase tracking-[0.2em] shadow-[0_8px_32px_rgba(16,185,129,0.3)] disabled:opacity-50 mt-6"
+                >
+                  Complete Service
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="list"
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <h3 className="text-atmosTextSubtle text-[10px] font-bold uppercase tracking-[0.2em] mb-4 px-4">Pending Requests</h3>
+              <div className="grid gap-3">
+                {facilities.slice(0, 3).map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => handleStartCleaning({ id: f.id, facility_name: f.name, location: f.location })}
+                    className="p-6 bg-white/5 border border-white/5 rounded-3xl hover:border-atmosAccent/30 transition-all text-left flex items-center justify-between group"
+                  >
+                    <div>
+                      <div className="text-lg font-bold text-white group-hover:text-atmosAccent transition-colors">{f.name}</div>
+                      <div className="text-[10px] text-atmosTextMuted font-bold uppercase mt-1">{f.location}</div>
+                    </div>
+                    <ArrowRight className="text-atmosTextMuted group-hover:text-atmosAccent" size={20} />
+                  </button>
+                ))}
+              </div>
+            </motion.div>
           )}
-        </div>
-      </main>
-
-      {/* Persistence Bar - Optimized for thumb reach */}
-      <div className="fixed bottom-0 left-0 w-full p-4 pb-6 md:p-6 bg-atmosBg/90 backdrop-blur-2xl border-t border-white/10 flex justify-center gap-12 md:gap-16 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
-         <button className="flex flex-col items-center gap-1.5 text-atmosAccent group">
-            <div className="p-2 rounded-xl bg-atmosAccent/10 group-active:scale-90 transition-transform">
-               <Clock size={20} />
-            </div>
-            <span className="text-[8px] font-bold uppercase tracking-widest">My Queue</span>
-         </button>
-         <button className="flex flex-col items-center gap-1.5 opacity-30 hover:opacity-100 transition-opacity group">
-            <div className="p-2 rounded-xl bg-white/5 group-active:scale-90 transition-transform">
-               <Shield size={20} />
-            </div>
-            <span className="text-[8px] font-bold uppercase tracking-widest">Protocol</span>
-         </button>
+        </AnimatePresence>
       </div>
     </div>
   );

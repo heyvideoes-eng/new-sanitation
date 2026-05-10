@@ -1,17 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, AlertTriangle, CheckCircle, Clock, IndianRupee, Plus, Filter, Layout } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useLiveData } from '../context/LiveDataContext';
 import { useToast } from '../context/ToastContext';
 import FacilityMap from '../components/Map/FacilityMap';
 import Skeleton from '../components/UI/Skeleton';
 
 const AdminDashboard: React.FC = () => {
-  const { facilities, isLive } = useLiveData();
+  const navigate = useNavigate();
+  const { facilities, isLive, govtMode } = useLiveData();
   const { showToast } = useToast();
   const [overview, setOverview] = useState<any>(null);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [filterMode, setFilterMode] = useState<'ALL' | 'CRITICAL'>('ALL');
+
+  const filteredAlerts = filterMode === 'ALL' 
+    ? alerts 
+    : alerts.filter(a => a.priority === 'CRITICAL');
 
   const fetchDashboardData = async () => {
     try {
@@ -35,7 +42,11 @@ const AdminDashboard: React.FC = () => {
     fetchDashboardData();
   }, []);
 
-  const handleCreateTask = async (facilityId: number, issue: string) => {
+  const handleCreateTask = async (taskId: number, facilityId: number, issue: string) => {
+    // Optimistic UI: Remove from list immediately
+    setAlerts(prev => prev.filter(a => a.id !== taskId));
+    showToast('Deploying specialized unit...', 'info');
+    
     try {
       const hostname = window.location.hostname;
       const API_URL = import.meta.env.VITE_API_URL || `http://${hostname}:4000`;
@@ -43,14 +54,48 @@ const AdminDashboard: React.FC = () => {
       const res = await fetch(`${API_URL}/api/maintenance/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ facility_id: facilityId, issue_reason: issue, severity: 'HIGH' })
+        body: JSON.stringify({ 
+          facility_id: facilityId, 
+          issue_reason: issue, 
+          severity: 'HIGH',
+          assigned_to: 'Team Alpha-6'
+        })
       });
+      
       if (res.ok) {
-        showToast(`Task deployed for ${facilities.find(f => f.id === facilityId)?.name}`, 'success');
+        showToast(`Team Alpha-6 deployed to ${facilities.find(f => f.id === facilityId)?.name}`, 'success');
+        // Refresh to ensure sync, but the local removal handled the 'vanish' requirement
         fetchDashboardData();
       }
     } catch (e) {
       showToast('Failed to deploy maintenance unit', 'error');
+      fetchDashboardData(); // Restore if failed
+    }
+  };
+
+  const handleManualIncident = async () => {
+    const facilityId = facilities[Math.floor(Math.random() * facilities.length)]?.id;
+    if (!facilityId) return;
+
+    showToast('Manual override: Deploying protocol...', 'info');
+    try {
+      const hostname = window.location.hostname;
+      const API_URL = import.meta.env.VITE_API_URL || `http://${hostname}:4000`;
+      
+      await fetch(`${API_URL}/api/maintenance/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          facility_id: facilityId, 
+          issue_reason: 'MANUAL OVERRIDE: Proactive Deep Sanitization Required', 
+          severity: 'MEDIUM',
+          assigned_to: 'Team Bravo-9'
+        })
+      });
+      showToast('Proactive task deployed to network', 'success');
+      fetchDashboardData();
+    } catch (e) {
+      showToast('Neural link error', 'error');
     }
   };
 
@@ -66,6 +111,16 @@ const AdminDashboard: React.FC = () => {
     <div className="min-h-screen bg-atmosBg pt-20 md:pt-24 pb-12 px-4 md:px-8 lg:px-12 max-w-[1600px] mx-auto">
       <header className="mb-8 md:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
+          <button 
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 text-[10px] text-atmosTextMuted font-bold uppercase tracking-widest hover:text-atmosAccent transition-colors mb-6 group"
+          >
+            <div className="p-1.5 bg-white/5 rounded-lg group-hover:bg-atmosAccent/10 transition-colors">
+              <Activity className="w-3.5 h-3.5 rotate-180" />
+            </div>
+            Back to Surface
+          </button>
+          
           <div className="flex items-center gap-4 mb-4">
             <div className="h-[1px] w-12 bg-atmosAccent" />
             <span className="text-atmosAccent text-[8px] md:text-[10px] font-bold uppercase tracking-[0.3em]">Command Center</span>
@@ -80,8 +135,20 @@ const AdminDashboard: React.FC = () => {
               <div className={`w-2 h-2 rounded-full ${isLive ? 'bg-green-500 shadow-[0_0_8px_green]' : 'bg-red-500'} `} />
               <span className="text-[8px] md:text-[10px] text-atmosTextMuted font-bold uppercase tracking-widest">{isLive ? 'LIVE LINK' : 'OFFLINE'}</span>
            </div>
-           <button className="p-2 md:p-3 hover:text-atmosAccent transition-colors"><Filter className="w-4 h-4 md:w-4.5 md:h-4.5" /></button>
-           <button className="p-2 md:p-3 bg-atmosAccent text-black rounded-full shadow-lg shadow-atmosAccent/20"><Plus className="w-4 h-4 md:w-4.5 md:h-4.5" /></button>
+           <button 
+             onClick={() => setFilterMode(prev => prev === 'ALL' ? 'CRITICAL' : 'ALL')}
+             className={`p-2 md:p-3 transition-colors rounded-full ${filterMode === 'CRITICAL' ? 'bg-red-500/20 text-red-500' : 'hover:text-atmosAccent'}`}
+             title={filterMode === 'ALL' ? 'Filter: All Incidents' : 'Filter: Critical Only'}
+           >
+             <Filter className="w-4 h-4 md:w-4.5 md:h-4.5" />
+           </button>
+           <button 
+             onClick={handleManualIncident}
+             className="p-2 md:p-3 bg-atmosAccent text-black rounded-full shadow-lg shadow-atmosAccent/20 hover:scale-110 transition-transform active:scale-95"
+             title="Deploy Manual Protocol"
+           >
+             <Plus className="w-4 h-4 md:w-4.5 md:h-4.5" />
+           </button>
         </div>
       </header>
 
@@ -117,26 +184,29 @@ const AdminDashboard: React.FC = () => {
           <div className="space-y-4 max-h-[400px] lg:max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
             {isLoading ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />) : (
               <AnimatePresence>
-                {alerts.map((alert) => (
+                {filteredAlerts.map((alert) => (
                   <motion.div 
                     key={alert.id} 
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
                     className="p-5 md:p-6 bg-white/5 border-l-4 border-red-500 rounded-r-2xl hover:bg-white/10 transition-all cursor-pointer group"
-                    onClick={() => handleCreateTask(alert.facility_id, alert.issue_reason)}
+                    onClick={() => handleCreateTask(alert.id, alert.facility_id, alert.issue_reason)}
                   >
                     <div className="flex justify-between items-start mb-2">
                        <span className="text-[9px] md:text-[10px] text-red-400 font-bold uppercase tracking-widest truncate">{alert.facility_name}</span>
                        <span className="text-[8px] md:text-[9px] text-atmosTextSubtle font-mono whitespace-nowrap ml-2">{new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     <p className="text-xs md:text-sm text-atmosText font-medium mb-3 md:mb-4 line-clamp-2">{alert.issue_reason}</p>
-                    <button className="text-[8px] md:text-[9px] text-atmosAccent font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Deploy Team →</button>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[7px] text-atmosTextMuted uppercase font-bold tracking-widest">Priority: {alert.priority}</span>
+                      <button className="text-[8px] md:text-[9px] text-atmosAccent font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Deploy Team Alpha →</button>
+                    </div>
                   </motion.div>
                 ))}
               </AnimatePresence>
             )}
-            {!isLoading && alerts.length === 0 && (
+            {!isLoading && filteredAlerts.length === 0 && (
               <div className="text-center py-16">
                 <div className="w-12 h-12 md:w-16 md:h-16 bg-atmosSuccess/5 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6">
                   <CheckCircle className="text-atmosSuccess opacity-20 w-6 h-6 md:w-8 md:h-8" />

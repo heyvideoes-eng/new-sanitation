@@ -1,24 +1,45 @@
 import express from 'express';
-import { db } from '../db/setup';
-import { io } from '../index';
+import { db } from '../db/setup.js';
+import { io } from '../index.js';
+
+import { Facility, MaintenanceTask } from '../db/mongo.js';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
 // 1. Create Maintenance Task
-router.post('/create', (req, res) => {
+router.post('/create', async (req, res) => {
   try {
-    const { facility_id, issue_reason, assigned_to, severity } = req.body;
+    const { facility_id, issue_reason, assigned_to, severity, cost_estimate } = req.body;
     
+    // SQL Logic (Primary)
     const info = db.prepare(`
-      INSERT INTO maintenance_tasks (facility_id, issue_reason, assigned_to, created_at, status)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(facility_id, issue_reason, assigned_to || 'UNASSIGNED', new Date().toISOString(), 'PENDING');
+      INSERT INTO maintenance_tasks (facility_id, issue_reason, assigned_to, created_at, status, priority, cost_estimate)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(facility_id, issue_reason, assigned_to || 'UNASSIGNED', new Date().toISOString(), 'PENDING', severity || 'MEDIUM', cost_estimate || null);
+
+    // MongoDB Logic (Parallel Persistence if connected)
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const mFac = await Facility.findOne({ name: new RegExp(facility_id, 'i') }); 
+        await MaintenanceTask.create({
+          facility_id: mFac?._id || new mongoose.Types.ObjectId(),
+          issue_reason,
+          status: 'PENDING',
+          priority: severity || 'MEDIUM'
+        });
+      } catch (mErr) {
+        console.warn('⚠️ [MongoDB] Sync failed');
+      }
+    }
 
     io.emit('maintenance_alert', {
+      id: info.lastInsertRowid,
       facility_id,
       alert_type: 'MANUAL_TICKET',
       message: issue_reason,
-      severity: severity || 'MEDIUM'
+      severity: severity || 'MEDIUM',
+      timestamp: new Date().toISOString()
     });
 
     res.json({ id: info.lastInsertRowid, status: 'success' });
@@ -31,13 +52,12 @@ router.post('/create', (req, res) => {
 router.put('/:id/accept', (req, res) => {
   try {
     const { id } = req.params;
-    const { eta_minutes } = req.body;
     
     db.prepare(`
       UPDATE maintenance_tasks 
-      SET accepted_at = ?, eta_minutes = ?, status = 'IN_PROGRESS'
+      SET started_at = ?, status = 'IN_PROGRESS'
       WHERE id = ?
-    `).run(new Date().toISOString(), eta_minutes || 15, id);
+    `).run(new Date().toISOString(), id);
 
     res.json({ status: 'success' });
   } catch (error: any) {
@@ -46,39 +66,62 @@ router.put('/:id/accept', (req, res) => {
 });
 
 // 3. Complete Task
-router.put('/:id/complete', (req, res) => {
+router.put('/:id/complete', async (req, res) => {
   try {
     const { id } = req.params;
-    const { scan_qr_code, supplies_used, issues_noted, cost_inr } = req.body;
+    const { cost_inr, photo, coords, notes } = req.body;
     
     const task = db.prepare('SELECT * FROM maintenance_tasks WHERE id = ?').get(id) as any;
     if (!task) return res.status(404).json({ error: 'Task not found' });
+
+    const facility = db.prepare('SELECT name FROM facilities WHERE id = ?').get(task.facility_id) as any;
 
     const completed_at = new Date().toISOString();
     const created_at = new Date(task.created_at);
     const response_time_mins = Math.floor((new Date(completed_at).getTime() - created_at.getTime()) / 60000);
 
-    // Update Task
+    // Update Task (SQL)
     db.prepare(`
       UPDATE maintenance_tasks 
-      SET completed_at = ?, scan_qr_code = ?, supplies_used = ?, issues_noted = ?, status = 'COMPLETED'
+      SET completed_at = ?, status = 'COMPLETED', verification_photo = ?, location_coords = ?
       WHERE id = ?
-    `).run(completed_at, scan_qr_code, JSON.stringify(supplies_used), issues_noted, id);
+    `).run(completed_at, photo, JSON.stringify(coords), id);
 
     // Log Budget
-    const manpower_cost = cost_inr?.manpower || 500;
-    const supplies_cost = cost_inr?.supplies || 200;
-    const total_cost = manpower_cost + supplies_cost;
-
+    const amount = cost_inr || 500;
     db.prepare(`
-      INSERT INTO budget_log (maintenance_id, manpower_cost, supplies_cost, total_cost, response_time_mins, logged_at)
+      INSERT INTO budget_log (task_id, facility_id, amount, category, description, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(id, manpower_cost, supplies_cost, total_cost, response_time_mins, completed_at);
+    `).run(id, task.facility_id, amount, 'repair', notes || 'Maintenance task completion', completed_at);
+
+    // MongoDB Persistence (if connected)
+    if (mongoose.connection.readyState === 1) {
+      try {
+        await MaintenanceTask.findByIdAndUpdate(id, {
+          status: 'COMPLETED',
+          completed_at: new Date(completed_at),
+          verification_photo: photo
+        });
+      } catch (err) {
+        console.warn('⚠️ [MongoDB] Completion sync failed');
+      }
+    }
+
+    // Emit real-time update
+    io.emit('maintenance_update', {
+      task_id: id,
+      facility_id: task.facility_id,
+      facility_name: facility?.name,
+      status: 'COMPLETED',
+      photo,
+      coords,
+      completed_at
+    });
 
     // Reset Facility Cleanliness
     db.prepare(`
       INSERT INTO cleanliness_status (facility_id, status, reason, updated_at)
-      VALUES (?, 'GREEN', 'Sanitization completed by cleaner', ?)
+      VALUES (?, 'GREEN', 'Sanitization completed', ?)
     `).run(task.facility_id, completed_at);
 
     res.json({ status: 'success', response_time_mins });

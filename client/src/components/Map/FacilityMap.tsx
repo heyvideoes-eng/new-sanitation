@@ -66,12 +66,22 @@ const FacilityMap: React.FC<FacilityMapProps> = ({ facilities, height = "600px",
                 <div className="p-2">
                   <h4 className="font-bold text-lg mb-1">{f.name}</h4>
                   <div className="text-xs text-gray-500 mb-3">{f.location}</div>
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
                     <div className={`w-2 h-2 rounded-full`} style={{ backgroundColor: getStatusColor(f.current_status || 'GREEN') }} />
                     <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: getStatusColor(f.current_status || 'GREEN') }}>
                       {f.current_status} STATUS
                     </span>
                   </div>
+
+                  {f.health?.verification_photo && (
+                    <div className="mb-3 rounded-lg overflow-hidden border border-gray-200">
+                      <img src={f.health.verification_photo} alt="Verification" className="w-full h-24 object-cover" />
+                      <div className="bg-gray-50 p-1 text-[8px] text-gray-500 text-center font-bold">
+                        LIVE VERIFICATION · {f.health.last_cleaned_at ? new Date(f.health.last_cleaned_at).toLocaleTimeString() : 'NOW'}
+                      </div>
+                    </div>
+                  )}
+
                   <button 
                     onClick={() => navigate(`/facility/${f.id}`)}
                     className="w-full py-2 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg"

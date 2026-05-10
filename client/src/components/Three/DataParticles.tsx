@@ -3,23 +3,32 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
 const DataParticles: React.FC = () => {
-  const count = 2000;
+  const count = 5000;
   const meshRef = useRef<THREE.Points>(null);
 
-  const particles = useMemo(() => {
-    const temp = new Float32Array(count * 3);
+  const { positions, colors } = useMemo(() => {
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+    const colorA = new THREE.Color('#3b82f6');
+    const colorB = new THREE.Color('#2dd4bf');
+
     for (let i = 0; i < count; i++) {
-      temp[i * 3] = (Math.random() - 0.5) * 100;
-      temp[i * 3 + 1] = (Math.random() - 0.5) * 50;
-      temp[i * 3 + 2] = (Math.random() - 0.5) * 100;
+      positions[i * 3] = (Math.random() - 0.5) * 120;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 60;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 120;
+
+      const mixedColor = colorA.clone().lerp(colorB, Math.random());
+      colors[i * 3] = mixedColor.r;
+      colors[i * 3 + 1] = mixedColor.g;
+      colors[i * 3 + 2] = mixedColor.b;
     }
-    return temp;
+    return { positions, colors };
   }, [count]);
 
   useFrame((state) => {
     if (meshRef.current) {
-      meshRef.current.rotation.y = state.clock.getElapsedTime() * 0.05;
-      meshRef.current.rotation.z = state.clock.getElapsedTime() * 0.02;
+      meshRef.current.rotation.y = state.clock.getElapsedTime() * 0.08;
+      meshRef.current.rotation.x = Math.sin(state.clock.getElapsedTime() * 0.2) * 0.1;
     }
   });
 
@@ -29,18 +38,24 @@ const DataParticles: React.FC = () => {
         <bufferAttribute
           attach="attributes-position"
           count={count}
-          array={particles}
+          array={positions}
           itemSize={3}
-          args={[particles, 3]}
+        />
+        <bufferAttribute
+          attach="attributes-color"
+          count={count}
+          array={colors}
+          itemSize={3}
         />
       </bufferGeometry>
       <pointsMaterial
-        size={0.1}
-        color="#3B82F6"
+        size={0.15}
+        vertexColors
         transparent
-        opacity={0.4}
+        opacity={0.6}
         sizeAttenuation
         blending={THREE.AdditiveBlending}
+        depthWrite={false}
       />
     </points>
   );

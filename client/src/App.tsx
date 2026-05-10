@@ -4,12 +4,15 @@ import Home from './pages/Home';
 import FacilityDetail from './pages/FacilityDetail';
 import AdminDashboard from './pages/AdminDashboard';
 import CleanerPortal from './pages/CleanerPortal';
+import InspectorPortal from './pages/InspectorPortal';
+import WelfarePortal from './pages/WelfarePortal';
 import BudgetPortal from './pages/BudgetPortal';
 import AnalyticsPage from './pages/AnalyticsPage';
 import LoginPage from './pages/LoginPage';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 
+import { SocketProvider } from './context/SocketContext';
 import { LiveDataProvider } from './context/LiveDataContext';
 
 import { ToastProvider } from './context/ToastContext';
@@ -19,15 +22,17 @@ function App() {
   return (
     <ToastProvider>
       <InteractiveCursor />
-      <AuthProvider>
-        <LiveDataProvider>
-        <Routes>
+      <SocketProvider>
+        <AuthProvider>
+          <LiveDataProvider>
+          <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<LoginPage />} />
           
           <Route path="/" element={<MainLayout />}>
             <Route index element={<Home />} />
             <Route path="facility/:id" element={<FacilityDetail />} />
+            <Route path="welfare" element={<WelfarePortal />} />
             
             {/* Admin Protected Routes */}
             <Route path="admin" element={
@@ -53,12 +58,20 @@ function App() {
               </ProtectedRoute>
             } />
 
+            {/* Inspector Protected Routes */}
+            <Route path="inspector" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <InspectorPortal />
+              </ProtectedRoute>
+            } />
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
       </LiveDataProvider>
     </AuthProvider>
-  </ToastProvider>
+  </SocketProvider>
+</ToastProvider>
   );
 }
 
