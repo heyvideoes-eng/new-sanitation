@@ -17,7 +17,7 @@ const DetailContent: React.FC = () => {
 
   useEffect(() => {
     const hostname = window.location.hostname;
-    const API_URL = import.meta.env.VITE_API_URL || `http://${hostname}:4000`;
+    const API_URL = import.meta.env.VITE_API_URL || (hostname === 'localhost' || hostname === '127.0.0.1' ? `http://${hostname}:4000` : window.location.origin);
     fetch(`${API_URL}/api/facilities/${id}/history?hours=24`)
       .then(res => res.json());
   }, [id]);
@@ -39,7 +39,7 @@ const DetailContent: React.FC = () => {
 
   const submitFeedback = () => {
     const hostname = window.location.hostname;
-    const API_URL = import.meta.env.VITE_API_URL || `http://${hostname}:4000`;
+    const API_URL = import.meta.env.VITE_API_URL || (hostname === 'localhost' || hostname === '127.0.0.1' ? `http://${hostname}:4000` : window.location.origin);
     fetch(`${API_URL}/api/feedback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

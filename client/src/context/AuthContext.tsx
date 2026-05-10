@@ -50,13 +50,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
     
     const hostname = window.location.hostname;
-    const protocol = window.location.protocol;
     
-    // Always point to port 4000 for SAAF backend unless overridden
+    // Localhost dev points to server port
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return `http://localhost:4000`;
     }
-    return `${protocol}//${hostname}:4000`;
+    // Production uses same origin
+    return window.location.origin;
   };
 
   const login = async (credentials: any) => {
