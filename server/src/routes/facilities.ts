@@ -4,16 +4,15 @@ import { getFacilityHealthSummary } from '../services/analyticsService.js';
 
 const router = express.Router();
 
-// 1. Neural Pick Recommendation Engine
+// 1. Live Recommendation Engine (based on hygiene & wait times)
 router.get('/recommendation', (req, res) => {
   try {
-    const { lat, lng } = req.query;
     const facilities = db.prepare('SELECT * FROM facilities').all() as any[];
     
     const candidates = facilities.map(f => {
       const summary = getFacilityHealthSummary(f.id);
       
-      // Score: Cleanliness(50%) - Wait(30%) - Crowding(20%)
+      // Simple heuristic for best facility
       const score = (summary.cleanliness_score * 0.5) - 
                     (summary.occupancy_rate * 25) - 
                     (Math.max(0, summary.time_since_last_clean_minutes - 120) * 0.05);
@@ -35,7 +34,7 @@ router.get('/recommendation', (req, res) => {
   }
 });
 
-// 2. Existing Facilities List (Updated with rich fields)
+// 2. Facilities List
 router.get('/', (req, res) => {
   try {
     const facilities = db.prepare('SELECT * FROM facilities').all() as any[];
@@ -51,3 +50,4 @@ router.get('/', (req, res) => {
 });
 
 export default router;
+

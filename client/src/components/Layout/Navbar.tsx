@@ -1,91 +1,85 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Globe, Activity } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { useAuth } from '../../context/AuthContext';
-import { useLiveData } from '../../context/LiveDataContext';
+import React from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Search, MapPin, Activity, Shield, PieChart, IndianRupee, User, Menu } from 'lucide-react';
+import { useSearch } from '../../context/SearchContext';
 
 const Navbar: React.FC = () => {
-  const [time, setTime] = useState(new Date());
-  const [isHighContrast, setIsHighContrast] = useState(false);
-  const { user } = useAuth();
-  const { govtMode, setGovtMode } = useLiveData();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { searchQuery, setSearchQuery } = useSearch();
 
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const toggleContrast = () => {
-    const newVal = !isHighContrast;
-    setIsHighContrast(newVal);
-    if (newVal) {
-      document.documentElement.classList.add('high-contrast');
-    } else {
-      document.documentElement.classList.remove('high-contrast');
-    }
-  };
+  const navItems = [
+    { path: '/analytics', icon: PieChart, label: 'Insights' },
+    { path: '/budget', icon: IndianRupee, label: 'Transparency' },
+  ];
 
   return (
-    <nav className="fixed top-0 left-0 w-full z-50 bg-atmosBg/80 backdrop-blur-md border-b border-white/5 px-6 py-4 flex items-center justify-between">
-      <div className="flex items-center gap-8">
-        <Link to="/" className="flex items-center gap-2">
-          <span className="text-atmosAccent font-bold text-2xl tracking-tighter">SANiTRAX</span>
-          <span className="text-[10px] bg-atmosAccent/20 text-atmosAccent px-1.5 py-0.5 rounded font-mono font-bold tracking-widest">GOVT</span>
-        </Link>
-        <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-full">
-          <span className="text-[8px] font-bold uppercase tracking-widest">Citizen</span>
-          <button 
-            onClick={() => {
-              setGovtMode(!govtMode);
-              navigate(govtMode ? '/' : '/admin');
-            }}
-            className="w-8 h-4 bg-white/10 rounded-full relative p-0.5"
-          >
-            <motion.div 
-              animate={{ x: govtMode ? 16 : 0 }}
-              className="w-3 h-3 rounded-full bg-atmosAccent"
-            />
-          </button>
-          <span className="text-[8px] font-bold uppercase tracking-widest">Govt Mode</span>
-        </div>
+    <nav className="fixed top-0 left-0 w-full z-[100] px-6 py-6 pointer-events-none">
+      <div className="max-w-7xl mx-auto flex items-center justify-between glass-panel px-6 py-3 rounded-2xl pointer-events-auto shadow-2xl border-white/10">
+        <div className="flex items-center gap-12">
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="w-8 h-8 bg-premium-accent rounded-lg flex items-center justify-center shadow-lg shadow-premium-accent/20 group-hover:scale-105 transition-transform">
+               <Activity size={18} className="text-white" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-premium-text font-bold text-lg tracking-tighter leading-none">SAAF</span>
+              <span className="text-[8px] font-bold text-premium-muted uppercase tracking-widest mt-0.5">Sanitrax</span>
+            </div>
+          </Link>
 
-        <div className="hidden md:flex items-center gap-6 border-l border-white/10 pl-8">
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-colors duration-500 text-atmosSuccess">
-            <motion.div 
-              animate={{ opacity: [1, 0.4, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              className="w-2 h-2 rounded-full bg-current"
-            />
-            <span>Data Live: {time.toLocaleTimeString()}</span>
+          <div className="hidden lg:flex items-center gap-6">
+            {navItems.map((item) => (
+              <Link 
+                key={item.path}
+                to={item.path}
+                className={`flex items-center gap-2 transition-all group ${location.pathname === item.path ? 'text-premium-accent' : 'text-premium-muted hover:text-premium-text'}`}
+              >
+                <item.icon size={14} className="group-hover:scale-110 transition-transform" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">{item.label}</span>
+              </Link>
+            ))}
           </div>
         </div>
-      </div>
 
-      <div className="flex items-center gap-6">
-        <div className="hidden xl:flex items-center gap-6 mr-6 border-r border-white/10 pr-8">
-           <Link to="/" className="text-[10px] text-atmosTextMuted font-bold uppercase tracking-widest hover:text-atmosAccent transition-colors">Pulse</Link>
-           <Link to="/welfare" className="text-[10px] text-atmosTextMuted font-bold uppercase tracking-widest hover:text-atmosAccent transition-colors">Welfare</Link>
-           <Link to="/admin" className="text-[10px] text-atmosTextMuted font-bold uppercase tracking-widest hover:text-atmosAccent transition-colors">Admin</Link>
-           <Link to="/inspector" className="text-[10px] text-atmosTextMuted font-bold uppercase tracking-widest hover:text-atmosAccent transition-colors">Audit</Link>
+        <div className="flex-1 max-w-sm mx-12 hidden md:block">
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-premium-subtle group-focus-within:text-premium-accent transition-colors" size={12} />
+            <input 
+              type="text" 
+              placeholder="Search units..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white/5 border border-white/5 rounded-full py-2.5 pl-11 pr-4 text-[11px] text-white outline-none focus:border-premium-accent/30 focus:bg-white/10 transition-all placeholder:text-premium-subtle"
+            />
+          </div>
         </div>
 
-        <button 
-          onClick={toggleContrast}
-          className="p-2 rounded-full border border-white/10 text-atmosTextMuted hover:text-atmosText transition-all"
-        >
-          <Globe size={16} />
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/5 rounded-full">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[9px] font-bold text-premium-muted uppercase tracking-widest">Live Sync</span>
+          </div>
+          
+          <div className="w-[1px] h-6 bg-white/10 hidden sm:block" />
 
-        <div className="flex items-center gap-3 bg-atmosBgAlt border border-white/5 rounded-full pl-4 pr-1 py-1 cursor-pointer" onClick={() => navigate('/login')}>
-           <div className="flex flex-col items-end pr-2">
-              <span className="text-[10px] text-atmosText font-bold uppercase leading-none mb-1">{user?.name || 'Guest'}</span>
-              <span className="text-[8px] text-atmosAccent font-bold uppercase tracking-widest leading-none">{user?.role || 'admin'}</span>
-           </div>
-           <div className="p-2 bg-atmosAccent/10 text-atmosAccent rounded-full">
-             <Activity size={16} />
-           </div>
+          <button 
+            onClick={() => navigate('/admin')}
+            className="p-2.5 rounded-full text-premium-muted hover:text-premium-accent hover:bg-white/5 transition-all"
+            title="Operational Dashboard"
+          >
+            <Shield size={18} />
+          </button>
+          <button 
+            onClick={() => navigate('/cleaner')}
+            className="p-2.5 rounded-full text-premium-muted hover:text-premium-accent hover:bg-white/5 transition-all"
+            title="Service Portal"
+          >
+            <User size={18} />
+          </button>
+          
+          <button className="md:hidden p-2 text-premium-muted">
+            <Menu size={20} />
+          </button>
         </div>
       </div>
     </nav>

@@ -6,59 +6,43 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import morgan from 'morgan';
+import fs from 'fs';
 
 import { db, initDB } from './db/setup.js';
 import { connectDB } from './db/mongo.js';
 import { initSensorJob } from './jobs/sensorJob.js';
-import { initPredictiveJob } from './jobs/predictiveJob.js';
 
 import authRoutes from './routes/auth.js';
-import dashboardRoutes from './routes/dashboard.js';
 import facilityRoutes from './routes/facilities.js';
-import maintenanceRoutes from './routes/maintenance.js';
-import budgetRoutes from './routes/budget.js';
-import analyticsRoutes from './routes/analytics.js';
 import feedbackRoutes from './routes/feedback.js';
 import photoRoutes from './routes/photos.js';
+import analyticsRoutes from './routes/analytics.js';
+import dashboardRoutes from './routes/dashboard.js';
+import maintenanceRoutes from './routes/maintenance.js';
 import inspectionRoutes from './routes/inspections.js';
+import budgetRoutes from './routes/budget.js';
 import devRoutes from './routes/dev.js';
-import { authenticate } from './middleware/auth.js';
-import fs from 'fs';
 
+dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 dotenv.config();
 
-// Ensure upload directory exists
 const uploadDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Enable Socket.io debugging if in dev
-if (process.env.NODE_ENV !== 'production') {
-  process.env.DEBUG = 'socket.io:*';
-}
-
 const app = express();
 const port = process.env.PORT || 4000;
 
-// Middleware
 app.use(morgan('dev'));
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Serve Uploads
 app.use('/uploads', express.static(uploadDir));
 
 export const httpServer = createServer(app);
 export const io = new Server(httpServer, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
-  },
+  cors: { origin: '*', methods: ['GET', 'POST'] },
   connectionStateRecovery: {
     maxDisconnectionDuration: 2 * 60 * 1000,
     skipMiddlewares: true,
@@ -66,62 +50,38 @@ export const io = new Server(httpServer, {
 });
 
 io.on('connection', (socket) => {
-  console.log(`📡 [Socket] Client connected: ${socket.id}`);
-  
-  if (socket.recovered) {
-    console.log(`🔄 [Socket] Session recovered for client: ${socket.id}`);
-  }
-
-  socket.on('disconnect', (reason) => {
-    console.log(`📡 [Socket] Client disconnected: ${socket.id} (${reason})`);
-  });
+  console.log(`📡 [Socket] Connected: ${socket.id}`);
 });
 
 // Initialize DB and Jobs
 initDB();
 connectDB();
 initSensorJob();
-initPredictiveJob();
 
-// 1. Basic Health Check
+// Root route
+app.get('/', (req, res) => {
+  res.json({ message: 'SAAF Intelligence Gateway is running.', docs: '/api/health' });
+});
+
+// Health Check
 app.get('/api/health', (_req, res) => {
   res.json({ 
-    name: 'SAAF Intelligence Gateway', 
     status: 'online', 
-    version: '1.5.0',
+    service: 'SAAF-Gateway',
     timestamp: new Date().toISOString()
   });
 });
 
-// 2. Debug Status Endpoint
-app.get('/api/debug/status', (req, res) => {
-  try {
-    const stats = {
-      uptime: process.uptime(),
-      memory: process.memoryUsage(),
-      db: {
-        facilities: db.prepare('SELECT COUNT(*) as count FROM facilities').get(),
-        tasks: db.prepare('SELECT COUNT(*) as count FROM maintenance_tasks').get(),
-        feedback: db.prepare('SELECT COUNT(*) as count FROM user_feedback').get(),
-      },
-      env: process.env.NODE_ENV || 'development'
-    };
-    res.json(stats);
-  } catch (err: any) {
-    res.status(500).json({ error: 'Debug status failed', message: err.message });
-  }
-});
-
-// Register Routes
+// Register Unified Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/facilities', facilityRoutes);
 app.use('/api/feedback', feedbackRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/budget', budgetRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/photos', photoRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/inspections', inspectionRoutes);
+app.use('/api/budget', budgetRoutes);
 app.use('/api/dev', devRoutes);
 
 // Static Hosting for Production
@@ -132,41 +92,27 @@ if (process.env.NODE_ENV === 'production') {
   const clientBuildPath = path.join(__dirname, '..', '..', 'client', 'dist');
   const indexPath = path.join(clientBuildPath, 'index.html');
   
-  console.log(`🌐 [Production]: Serving client from ${clientBuildPath}`);
-  
-  if (!fs.existsSync(indexPath)) {
-    console.error(`❌ [Critical]: Client build not found at ${indexPath}`);
-    console.log('Current directory structure:', fs.readdirSync(process.cwd()));
-    if (fs.existsSync(path.join(__dirname, '..', '..', 'client'))) {
-      console.log('Client folder contents:', fs.readdirSync(path.join(__dirname, '..', '..', 'client')));
-    }
-  }
-
   app.use(express.static(clientBuildPath));
   
   app.get('*', (req, res) => {
-    if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API route not found' });
-    if (!fs.existsSync(indexPath)) {
-      return res.status(500).json({ 
-        error: true, 
-        message: 'Client build missing. Please check build logs.',
-        path: indexPath 
-      });
+    if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API not found' });
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(500).send('Client build missing');
     }
-    res.sendFile(indexPath);
   });
 }
 
-// Global Error Handler
+// Error Handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('🔥 [Internal Error]:', err);
+  console.error('🔥 [Error]:', err);
   res.status(err.status || 500).json({
     error: true,
-    message: err.message || 'An unexpected error occurred on the SAAF Gateway',
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    message: err.message || 'Internal Gateway Error'
   });
 });
 
 httpServer.listen(port, () => {
-  console.log(`🚀 SAAF Intelligence Gateway running on http://localhost:${port}`);
+  console.log(`🚀 SAAF Gateway running on port ${port}`);
 });

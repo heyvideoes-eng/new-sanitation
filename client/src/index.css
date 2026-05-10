@@ -4,51 +4,45 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #02040a;
-  --foreground: #f8fafc;
-  --accent: #3b82f6;
-  --accent-soft: #60a5fa;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --error: #ef4444;
-}
-
 @layer base {
+  :root {
+    --background: #02040a;
+    --foreground: #f8fafc;
+    --premium-accent: #3b82f6;
+  }
+
   html {
     -webkit-tap-highlight-color: transparent;
     scroll-behavior: smooth;
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground antialiased selection:bg-premium-accent/30 selection:text-white;
     font-family: 'Outfit', 'Inter', system-ui, sans-serif;
     background-image: 
-      radial-gradient(circle at 50% -20%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
-      radial-gradient(circle at 100% 100%, rgba(45, 212, 191, 0.04) 0%, transparent 40%);
+      radial-gradient(circle at 50% -20%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 100% 100%, rgba(45, 212, 191, 0.02) 0%, transparent 40%);
     background-attachment: fixed;
-  }
-
-  ::selection {
-    @apply bg-atmosAccent/30 text-white;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Outfit', sans-serif;
+    @apply tracking-tight;
   }
 }
 
-/* Premium Typography Utilities */
-.text-premium-label {
-  @apply text-[10px] font-bold uppercase tracking-[0.3em] text-white/40;
-}
+@layer components {
+  .glass-panel {
+    @apply bg-premium-card backdrop-blur-premium border border-premium-border rounded-3xl transition-all duration-500;
+  }
 
-.text-gradient {
-  @apply bg-clip-text text-transparent bg-gradient-to-br from-white via-white to-white/40;
-}
+  .premium-button {
+    @apply px-6 py-3 bg-premium-accent text-white font-bold uppercase tracking-widest text-[10px] rounded-full hover:scale-105 active:scale-95 transition-all shadow-lg shadow-premium-accent/20;
+  }
 
-.text-accent-gradient {
-  @apply bg-clip-text text-transparent bg-gradient-to-br from-atmosAccent via-atmosAccentSoft to-atmosAccent/50;
+  .minimal-input {
+    @apply w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-premium-accent transition-all text-sm;
+  }
 }
 
 /* Custom Scrollbar */
@@ -56,24 +50,25 @@
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
 }
 
-/* Leaflet Dark Mode */
-.map-tiles-dark {
-  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+/* Map Overrides */
+.leaflet-container {
+  @apply grayscale invert opacity-90;
 }
 
 .saaf-popup .leaflet-popup-content-wrapper {
-  @apply bg-atmosBgAlt/90 backdrop-blur-xl border border-white/10 text-white rounded-[20px] shadow-2xl;
+  @apply bg-premium-bg/90 backdrop-blur-xl border border-premium-border text-white rounded-2xl shadow-2xl;
 }
 .saaf-popup .leaflet-popup-tip {
-  @apply bg-atmosBgAlt/90;
+  @apply bg-premium-bg/90;
 }
+

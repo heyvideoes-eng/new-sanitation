@@ -56,7 +56,15 @@ export const initSensorJob = () => {
         });
       }
 
-      // 4. Update Queue
+      // 4. Update Rush Prediction (Mock AI logic)
+      if (Math.random() > 0.7) {
+        const surge = 10 + Math.random() * 20;
+        const confidence = 60 + Math.random() * 35;
+        db.prepare('INSERT INTO predicted_rush (facility_id, predicted_at, surge_in_mins, confidence_pct, source) VALUES (?, ?, ?, ?, ?)')
+          .run(facility.id, new Date().toISOString(), surge, confidence, 'Neural-Gateway-V1');
+      }
+
+      // 5. Update Queue
       const occupiedStalls = stalls.filter(s => s.is_occupied === 1).length;
       const currentUsers = occupiedStalls + Math.floor(Math.random() * 5);
       const waitTime = (currentUsers / facility.total_stalls) * 5;

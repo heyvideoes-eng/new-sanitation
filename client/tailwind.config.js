@@ -11,19 +11,26 @@ export default {
         outfit: ['Outfit', 'sans-serif'],
       },
       colors: {
-        background: '#030712',
+        background: '#02040a',
         foreground: '#f8fafc',
-        atmosBg: '#030712',
-        atmosBgAlt: '#0f172a',
-        atmosAccent: '#3b82f6',
-        atmosAccentSoft: '#60a5fa',
-        atmosSuccess: '#22c55e',
-        atmosWarning: '#f59e0b',
-        atmosError: '#ef4444',
-        atmosText: '#f8fafc',
-        atmosTextMuted: '#94a3b8',
-        atmosTextSubtle: '#64748b',
-        atmosViolet: '#8b5cf6',
+        premium: {
+          bg: '#02040a',
+          card: 'rgba(15, 23, 42, 0.3)',
+          border: 'rgba(255, 255, 255, 0.08)',
+          accent: '#3b82f6',
+          text: '#f8fafc',
+          muted: '#94a3b8',
+          subtle: '#64748b',
+        },
+        status: {
+          usable: '#10b981', // Green
+          attention: '#f59e0b', // Amber
+          issue: '#ef4444', // Red
+          unavailable: '#475569', // Grey
+        }
+      },
+      backdropBlur: {
+        premium: '20px',
       },
       animation: {
         'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -32,3 +39,4 @@ export default {
   },
   plugins: [],
 }
+

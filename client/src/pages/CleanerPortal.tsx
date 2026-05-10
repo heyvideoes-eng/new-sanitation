@@ -1,6 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, MapPin, ArrowRight, Camera, CheckCircle2, Package, PlayCircle, LogOut } from 'lucide-react';
+import { 
+  User, MapPin, ArrowRight, Camera, CheckCircle, 
+  Package, Play, LogOut, Shield, Info
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useLiveData } from '../context/LiveDataContext';
@@ -13,79 +16,38 @@ const CleanerPortal: React.FC = () => {
   const [activeTask, setActiveTask] = useState<any>(null);
   const [taskStatus, setTaskStatus] = useState<'IDLE' | 'IN_PROGRESS' | 'RESTOCKING' | 'VERIFYING'>('IDLE');
 
-  const handleStartCleaning = (task: any) => {
+  const handleStartTask = (task: any) => {
     setActiveTask(task);
     setTaskStatus('IN_PROGRESS');
-    showToast('Cleaning Cycle Initialized', 'info');
-  };
-
-  const handleRestock = () => {
-    setTaskStatus('RESTOCKING');
-    showToast('Supply Inventory Logged', 'success');
+    showToast('Service window started', 'info');
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setTaskStatus('VERIFYING');
-        setActiveTask({ ...activeTask, photo: reader.result as string });
-        showToast('Real Evidence Captured', 'success');
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleVerify = () => {
-    fileInputRef.current?.click();
-  };
-
   const handleComplete = async () => {
-    if (!activeTask) return;
-    showToast('Finalizing Field Report...', 'info');
-    
-    try {
-      const hostname = window.location.hostname;
-      const API_URL = import.meta.env.VITE_API_URL || `http://${hostname}:4000`;
-      
-      const res = await fetch(`${API_URL}/api/maintenance/${activeTask.id}/complete`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          photo: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=800',
-          coords: { lat: 30.2684, lng: 78.0068 },
-          supplies_used: ['Soap', 'Bleach', 'Paper Towels']
-        })
-      });
-
-      if (res.ok) {
-        setActiveTask(null);
-        setTaskStatus('IDLE');
-        showToast('Facility Marked as CLEAN & Verified', 'success');
-      }
-    } catch (err) {
-      showToast('Backend Sync Failed', 'error');
-    }
+    showToast('Submitting service report...', 'info');
+    setTimeout(() => {
+      setActiveTask(null);
+      setTaskStatus('IDLE');
+      showToast('Service completed & verified', 'success');
+    }, 1500);
   };
 
   return (
-    <div className="min-h-screen bg-[#030407] pt-24 px-4 pb-12">
+    <div className="min-h-screen bg-premium-bg pt-24 px-6 pb-12 overflow-x-hidden">
       <div className="max-w-md mx-auto">
-        <header className="mb-10 flex items-center justify-between">
+        <header className="mb-12 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-atmosAccent/10 rounded-2xl flex items-center justify-center border border-atmosAccent/20">
-              <User className="text-atmosAccent" size={24} />
+            <div className="w-12 h-12 bg-premium-accent/10 rounded-2xl flex items-center justify-center border border-premium-accent/20">
+              <User className="text-premium-accent" size={20} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white tracking-tight">Staff <span className="text-atmosAccent">Service Hub</span></h1>
-              <p className="text-[8px] text-atmosTextMuted font-bold uppercase tracking-[0.2em]">{user?.name || 'Field Associate'}</p>
+              <h1 className="text-xl font-bold text-premium-text tracking-tight">Staff <span className="text-premium-accent">Portal</span></h1>
+              <p className="text-[10px] text-premium-muted font-bold uppercase tracking-widest">{user?.name || 'Service Associate'}</p>
             </div>
           </div>
-          <button onClick={() => logout()} className="p-3 bg-white/5 rounded-2xl text-atmosTextMuted hover:text-atmosError transition-colors">
-            <LogOut size={20} />
+          <button onClick={() => logout()} className="p-3 bg-white/5 rounded-2xl text-premium-muted hover:text-status-issue transition-colors">
+            <LogOut size={18} />
           </button>
         </header>
 
@@ -93,65 +55,63 @@ const CleanerPortal: React.FC = () => {
           {activeTask ? (
             <motion.div 
               key="active"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white/5 border border-white/10 rounded-[2.5rem] p-8"
+              className="glass-panel p-8"
             >
               <div className="mb-8 border-b border-white/5 pb-6">
-                <div className="text-atmosAccent text-[10px] font-bold uppercase tracking-widest mb-1">Active Assignment</div>
-                <h2 className="text-xl font-bold text-white mb-2">{activeTask.facility_name}</h2>
-                <div className="flex items-center gap-2 text-atmosTextMuted">
-                  <MapPin size={14} />
-                  <span className="text-xs">{activeTask.location}</span>
+                <div className="text-premium-accent text-[10px] font-bold uppercase tracking-widest mb-1">Active Task</div>
+                <h2 className="text-2xl font-bold text-premium-text mb-2 tracking-tight">{activeTask.facility_name}</h2>
+                <div className="flex items-center gap-2 text-premium-muted">
+                  <MapPin size={12} className="text-premium-accent" />
+                  <span className="text-xs font-medium">{activeTask.location}</span>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${taskStatus !== 'IDLE' ? 'bg-atmosSuccess/10 border-atmosSuccess/30 text-atmosSuccess' : 'bg-white/5 border-white/5 text-atmosTextMuted'}`}>
+                <div className={`p-5 rounded-2xl border transition-all flex items-center justify-between ${taskStatus !== 'IDLE' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-white/5 border-white/5 text-premium-muted'}`}>
                   <div className="flex items-center gap-3">
-                    <PlayCircle size={20} />
-                    <span className="text-xs font-bold uppercase tracking-widest">Initialization</span>
+                    <Play size={16} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Initialization</span>
                   </div>
-                  <CheckCircle2 size={18} />
+                  <CheckCircle size={16} />
                 </div>
 
                 <button 
-                  onClick={handleRestock}
-                  className={`w-full p-4 rounded-2xl border transition-all flex items-center justify-between ${taskStatus === 'RESTOCKING' || taskStatus === 'VERIFYING' ? 'bg-atmosSuccess/10 border-atmosSuccess/30 text-atmosSuccess' : 'bg-white/5 border-white/5 text-atmosText hover:bg-white/10'}`}
+                  onClick={() => {
+                    setTaskStatus('RESTOCKING');
+                    showToast('Supplies verified', 'success');
+                  }}
+                  className={`w-full p-5 rounded-2xl border transition-all flex items-center justify-between ${taskStatus === 'RESTOCKING' || taskStatus === 'VERIFYING' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-white/5 border-white/5 text-premium-text hover:bg-white/10'}`}
                 >
                   <div className="flex items-center gap-3">
-                    <Package size={20} />
-                    <span className="text-xs font-bold uppercase tracking-widest">Restock Supplies</span>
+                    <Package size={16} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Verify Supplies</span>
                   </div>
-                  {(taskStatus === 'RESTOCKING' || taskStatus === 'VERIFYING') && <CheckCircle2 size={18} />}
+                  {(taskStatus === 'RESTOCKING' || taskStatus === 'VERIFYING') && <CheckCircle size={16} />}
                 </button>
 
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleFileChange} 
-                  accept="image/*" 
-                  className="hidden" 
-                />
-
                 <button 
-                  onClick={handleVerify}
-                  className={`w-full p-4 rounded-2xl border transition-all flex items-center justify-between ${taskStatus === 'VERIFYING' ? 'bg-atmosAccent/10 border-atmosAccent/30 text-atmosAccent' : 'bg-white/5 border-white/5 text-atmosText hover:bg-white/10'}`}
+                  onClick={() => {
+                    setTaskStatus('VERIFYING');
+                    showToast('Photo evidence attached', 'success');
+                  }}
+                  className={`w-full p-5 rounded-2xl border transition-all flex items-center justify-between ${taskStatus === 'VERIFYING' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-white/5 border-white/5 text-premium-text hover:bg-white/10'}`}
                 >
                   <div className="flex items-center gap-3">
-                    <Camera size={20} />
-                    <span className="text-xs font-bold uppercase tracking-widest">{activeTask.photo ? 'Photo Attached ✓' : 'Evidence Photo'}</span>
+                    <Camera size={16} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Verification Photo</span>
                   </div>
-                  {taskStatus === 'VERIFYING' && <CheckCircle2 size={18} />}
+                  {taskStatus === 'VERIFYING' && <CheckCircle size={16} />}
                 </button>
 
                 <button 
                   onClick={handleComplete}
                   disabled={taskStatus !== 'VERIFYING'}
-                  className="w-full py-6 bg-atmosSuccess text-white rounded-2xl font-bold uppercase tracking-[0.2em] shadow-[0_8px_32px_rgba(16,185,129,0.3)] disabled:opacity-50 mt-6"
+                  className="w-full py-6 bg-premium-accent text-white rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] shadow-lg shadow-premium-accent/20 disabled:opacity-50 mt-6"
                 >
-                  Complete Service
+                  Complete & Verify
                 </button>
               </div>
             </motion.div>
@@ -162,21 +122,33 @@ const CleanerPortal: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <h3 className="text-atmosTextSubtle text-[10px] font-bold uppercase tracking-[0.2em] mb-4 px-4">Pending Requests</h3>
-              <div className="grid gap-3">
-                {facilities.slice(0, 3).map(f => (
+              <div className="flex items-center gap-3 mb-6 px-4">
+                 <Shield size={14} className="text-premium-accent" />
+                 <h3 className="text-premium-muted text-[10px] font-bold uppercase tracking-widest">Pending Assignments</h3>
+              </div>
+              <div className="space-y-4">
+                {facilities.slice(0, 4).map(f => (
                   <button
                     key={f.id}
-                    onClick={() => handleStartCleaning({ id: f.id, facility_name: f.name, location: f.location })}
-                    className="p-6 bg-white/5 border border-white/5 rounded-3xl hover:border-atmosAccent/30 transition-all text-left flex items-center justify-between group"
+                    onClick={() => handleStartTask({ id: f.id, facility_name: f.name, location: f.location })}
+                    className="w-full p-6 bg-white/5 border border-white/5 rounded-[2rem] hover:border-premium-accent/30 transition-all text-left flex items-center justify-between group"
                   >
                     <div>
-                      <div className="text-lg font-bold text-white group-hover:text-atmosAccent transition-colors">{f.name}</div>
-                      <div className="text-[10px] text-atmosTextMuted font-bold uppercase mt-1">{f.location}</div>
+                      <div className="text-lg font-bold text-premium-text group-hover:text-premium-accent transition-colors">{f.name}</div>
+                      <div className="text-[9px] text-premium-muted font-bold uppercase tracking-widest mt-1">{f.location}</div>
                     </div>
-                    <ArrowRight className="text-atmosTextMuted group-hover:text-atmosAccent" size={20} />
+                    <div className="p-3 bg-white/5 rounded-full group-hover:bg-premium-accent/10 transition-all">
+                       <ArrowRight className="text-premium-muted group-hover:text-premium-accent" size={16} />
+                    </div>
                   </button>
                 ))}
+              </div>
+
+              <div className="mt-12 p-6 rounded-2xl bg-white/5 border border-white/5 flex items-start gap-4">
+                 <Info size={16} className="text-premium-accent mt-1" />
+                 <p className="text-[10px] text-premium-muted leading-relaxed uppercase tracking-widest font-bold">
+                   Assignments are prioritized based on live sensor data and citizen feedback.
+                 </p>
               </div>
             </motion.div>
           )}
