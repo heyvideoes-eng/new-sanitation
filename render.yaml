@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: saaf-monorepo
+    env: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false # Set this in the Render dashboard if using Atlas
+    healthCheckPath: /api/health

@@ -10,4 +10,7 @@ yarn-debug.log*
 yarn-error.log*
 .sqlite
 server/database.sqlite
+server/data/*.db
+server/data/*.db-shm
+server/data/*.db-wal
 client/dist
