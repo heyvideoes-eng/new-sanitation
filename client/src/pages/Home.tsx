@@ -7,6 +7,7 @@ import DeepDive from '../components/UI/DeepDive';
 import { useLiveData } from '../context/LiveDataContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Camera, ShieldCheck, Zap } from 'lucide-react';
+import { API_URL } from '../lib/api';
 
 const HomeContent: React.FC = () => {
   const { 
@@ -56,7 +57,6 @@ const HomeContent: React.FC = () => {
         });
       } else {
         // Submit feedback
-        const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:4000' : '';
         await fetch(`${API_URL}/api/feedback`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
