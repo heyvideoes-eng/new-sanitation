@@ -21,6 +21,7 @@ import dashboardRoutes from './routes/dashboard.js';
 import maintenanceRoutes from './routes/maintenance.js';
 import inspectionRoutes from './routes/inspections.js';
 import budgetRoutes from './routes/budget.js';
+import aiRoutes from './routes/ai.js';
 import devRoutes from './routes/dev.js';
 
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
@@ -77,6 +78,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/inspections', inspectionRoutes);
 app.use('/api/budget', budgetRoutes);
+app.use('/api/ai', aiRoutes);
 app.use('/api/dev', devRoutes);
 
 // Static Hosting for Production

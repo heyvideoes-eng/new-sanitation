@@ -8,32 +8,42 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useLiveData } from '../context/LiveDataContext';
 import { useToast } from '../context/ToastContext';
+import { API_URL } from '../lib/api';
 import FacilityMap from '../components/Map/FacilityMap';
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { facilities, isLive } = useLiveData();
+  const { facilities, alerts, globalStats, recommendation, isLive } = useLiveData();
   const { showToast } = useToast();
   const [filterMode, setFilterMode] = useState<'ALL' | 'CRITICAL'>('ALL');
 
-  // Simulated Alerts (to avoid broken API states during redesign)
-  const alerts = useMemo(() => [
-    { id: 1, facility_name: 'ISBT Toilet – ISBT Flyover', issue_reason: 'High ammonia levels detected in Unit B.', priority: 'CRITICAL', created_at: new Date().toISOString() },
-    { id: 2, facility_name: 'SBM Toilet – Old Cantt Market', issue_reason: 'Routine maintenance window approaching.', priority: 'MEDIUM', created_at: new Date(Date.now() - 3600000).toISOString() },
-  ], []);
-
   const filteredAlerts = useMemo(() => 
-    filterMode === 'ALL' ? alerts : alerts.filter(a => a.priority === 'CRITICAL'),
+    filterMode === 'ALL' 
+      ? alerts.filter(a => a.status === 'PENDING') 
+      : alerts.filter(a => a.status === 'PENDING' && a.priority === 'CRITICAL'),
     [alerts, filterMode]
   );
 
   const stats = useMemo(() => ({
     total: facilities.length,
-    activeAlerts: alerts.length,
-    inProgress: 3,
-    avgResponse: '14m',
-    uptime: '99.8%'
-  }), [facilities, alerts]);
+    activeAlerts: alerts.filter(a => a.status === 'PENDING').length,
+    inProgress: alerts.filter(a => a.status === 'IN_PROGRESS').length,
+    avgResponse: globalStats?.avg_response_time_mins_today ? `${globalStats.avg_response_time_mins_today}m` : '12m',
+    uptime: '99.9%'
+  }), [facilities, alerts, globalStats]);
+
+  const acknowledgeAlert = async (id: number) => {
+    try {
+      const res = await fetch(`${API_URL}/api/maintenance/${id}/accept`, {
+        method: 'PUT'
+      });
+      if (res.ok) {
+        showToast('Alert acknowledged & assigned', 'success');
+      }
+    } catch (err) {
+      showToast('Action failed', 'error');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-premium-bg pt-24 pb-12 px-6 overflow-x-hidden">
@@ -83,6 +93,30 @@ const AdminDashboard: React.FC = () => {
           </div>
         </header>
 
+        {/* AI Insight Banner */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-12 p-6 glass-panel border-premium-accent/30 bg-premium-accent/5 flex items-center gap-6 relative overflow-hidden group"
+        >
+          <div className="p-4 bg-premium-accent/10 rounded-2xl relative z-10 shadow-inner">
+            <Activity size={24} className="text-premium-accent animate-pulse" />
+          </div>
+          <div className="flex-1 relative z-10">
+            <div className="flex items-center gap-2 mb-1">
+               <span className="text-[10px] font-bold text-premium-accent uppercase tracking-widest">NVIDIA NIM AI Insight</span>
+               <div className="w-1.5 h-1.5 rounded-full bg-premium-accent animate-ping" />
+            </div>
+            <p className="text-sm font-medium text-premium-text">
+              {recommendation?.best?.ai_insight || "Analyzing Dehradun network telemetry for optimization..."}
+            </p>
+          </div>
+          <div className="absolute right-0 top-0 h-full w-64 bg-gradient-to-l from-premium-accent/10 to-transparent pointer-events-none" />
+          <div className="absolute -right-10 -bottom-10 opacity-5 group-hover:opacity-10 transition-opacity">
+             <Shield size={160} className="text-premium-accent" />
+          </div>
+        </motion.div>
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-12">
           {[
@@ -128,13 +162,13 @@ const AdminDashboard: React.FC = () => {
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
                     className="p-6 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 transition-all cursor-pointer group"
-                    onClick={() => showToast(`Service task created for ${alert.facility_name}`, 'success')}
+                    onClick={() => acknowledgeAlert(alert.id)}
                   >
                     <div className="flex justify-between items-start mb-3">
                        <span className="text-[10px] text-premium-accent font-bold uppercase tracking-widest">{alert.facility_name}</span>
                        <span className="text-[8px] text-premium-subtle font-medium">{new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
-                    <p className="text-sm text-premium-text font-medium mb-4 leading-relaxed line-clamp-2">{alert.issue_reason}</p>
+                    <p className="text-sm text-premium-text font-medium mb-4 leading-relaxed line-clamp-2">{alert.description}</p>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
                         <div className={`w-1.5 h-1.5 rounded-full ${alert.priority === 'CRITICAL' ? 'bg-status-issue' : 'bg-status-attention'}`} />

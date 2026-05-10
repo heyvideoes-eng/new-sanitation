@@ -7,19 +7,34 @@ import { useToast } from '../context/ToastContext';
 const BudgetPortal: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  // Simulated Budget Data
-  const data = useMemo(() => ({
-    summary: {
-      total_spend: '42,500',
-      tasks_completed: 124,
-      avg_response: 12
-    },
-    logs: [
-      { id: 1, logged_at: new Date().toISOString(), facility_name: 'ISBT Toilet – ISBT Flyover', issue: 'Sensor array calibration & supply restock', total_cost: '1,250' },
-      { id: 2, logged_at: new Date(Date.now() - 86400000).toISOString(), facility_name: 'SBM Toilet – Old Cantt Market', issue: 'Scheduled plumbing maintenance', total_cost: '3,400' },
-      { id: 3, logged_at: new Date(Date.now() - 172800000).toISOString(), facility_name: 'SBM Toilet – Quarter Deck Market', issue: 'Emergency fixture repair', total_cost: '850' },
-    ]
-  }), []);
+  const [budgetData, setBudgetData] = React.useState<{ summary: any; logs: any[] }>({
+    summary: { total_spend: 0, tasks_completed: 0, avg_response: 15 },
+    logs: []
+  });
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchBudget = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/budget`);
+        if (res.ok) {
+          const data = await res.json();
+          setBudgetData(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch budget data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchBudget();
+  }, []);
+
+  const stats = useMemo(() => [
+    { label: 'Total Expenditure', value: `₹${Number(budgetData.summary.total_spend).toLocaleString()}`, icon: IndianRupee, color: 'text-violet-400' },
+    { label: 'Completed Services', value: budgetData.summary.tasks_completed, icon: FileText, color: 'text-premium-accent' },
+    { label: 'Avg Efficiency', value: `${budgetData.summary.avg_response}m`, icon: ShieldCheck, color: 'text-emerald-500' }
+  ], [budgetData]);
 
   return (
     <div className="min-h-screen bg-premium-bg pt-24 pb-12 px-6 overflow-x-hidden">
@@ -58,11 +73,7 @@ const BudgetPortal: React.FC = () => {
 
         {/* Summary Banner */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-          {[
-            { label: 'Total Expenditure', value: `₹${data.summary.total_spend}`, icon: IndianRupee, color: 'text-violet-400' },
-            { label: 'Completed Services', value: data.summary.tasks_completed, icon: FileText, color: 'text-premium-accent' },
-            { label: 'Avg Efficiency', value: `${data.summary.avg_response}m`, icon: ShieldCheck, color: 'text-emerald-500' }
-          ].map((stat, i) => (
+          {stats.map((stat, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 20 }}
@@ -71,7 +82,9 @@ const BudgetPortal: React.FC = () => {
               className="glass-panel p-8 group hover:border-premium-accent/30 transition-all"
             >
               <stat.icon className={`mb-6 ${stat.color}`} size={24} />
-              <div className="text-3xl font-bold text-premium-text mb-1 tracking-tight">{stat.value}</div>
+              <div className="text-3xl font-bold text-premium-text mb-1 tracking-tight">
+                {isLoading ? '--' : stat.value}
+              </div>
               <div className="text-[10px] text-premium-muted font-bold uppercase tracking-widest">{stat.label}</div>
             </motion.div>
           ))}
@@ -104,19 +117,25 @@ const BudgetPortal: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {data.logs.map((log, i) => (
+                {budgetData.logs.length > 0 ? budgetData.logs.map((log, i) => (
                   <tr key={i} className="hover:bg-white/5 transition-colors group">
-                    <td className="p-6 text-[11px] text-premium-subtle font-medium">{new Date(log.logged_at).toLocaleDateString()}</td>
+                    <td className="p-6 text-[11px] text-premium-subtle font-medium">{new Date(log.created_at).toLocaleDateString()}</td>
                     <td className="p-6 text-sm text-premium-text font-bold group-hover:text-premium-accent transition-colors">{log.facility_name}</td>
-                    <td className="p-6 text-xs text-premium-muted leading-relaxed max-w-xs">{log.issue}</td>
-                    <td className="p-6 text-sm text-premium-text font-bold tracking-tight">₹{log.total_cost}</td>
+                    <td className="p-6 text-xs text-premium-muted leading-relaxed max-w-xs">{log.description}</td>
+                    <td className="p-6 text-sm text-premium-text font-bold tracking-tight">₹{Number(log.amount).toLocaleString()}</td>
                     <td className="p-6 text-right">
                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-500 text-[8px] font-bold uppercase tracking-widest rounded-full border border-emerald-500/20">
                          <ShieldCheck size={10} /> Verified
                        </div>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan={5} className="p-20 text-center text-premium-muted text-[10px] font-bold uppercase tracking-widest">
+                      {isLoading ? 'Decrypting ledger...' : 'No audited records found'}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

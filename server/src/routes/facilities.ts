@@ -24,8 +24,23 @@ router.get('/recommendation', (req, res) => {
       };
     }).sort((a, b) => b.score - a.score);
 
+    const best = candidates[0];
+    let ai_insight = "Monitoring active.";
+    
+    if (best) {
+      try {
+        const { getAIInsights } = await import('../services/nvidia.js');
+        ai_insight = await getAIInsights(best.name, {
+          cleanliness: best.health.cleanliness_score,
+          occupancy: Math.round(best.health.occupancy_rate * 100)
+        });
+      } catch (e) {
+        console.warn('AI Insight skipped');
+      }
+    }
+
     res.json({
-      best: candidates[0],
+      best: { ...best, ai_insight },
       alternatives: candidates.slice(1, 4),
       timestamp: new Date().toISOString()
     });

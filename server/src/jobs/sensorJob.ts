@@ -92,12 +92,31 @@ export const initSensorJob = () => {
       });
 
       if (status === 'RED' || (tissue < 20) || (soap < 15)) {
-        io.emit('maintenance_alert', {
-          facility_id: facility.id,
-          alert_type: status === 'RED' ? 'CRITICAL_CLEANLINESS' : 'SUPPLY_LOW',
-          message: reason,
-          severity: status === 'RED' ? 'HIGH' : 'MEDIUM'
-        });
+        const severity = status === 'RED' ? 'HIGH' : 'MEDIUM';
+        const taskReason = status === 'RED' ? 'Critical Sensor Reading' : 'Low Supplies';
+        
+        // Persist task in DB so it shows up for cleaners
+        const task = db.prepare(`
+          INSERT INTO maintenance_tasks (facility_id, status, priority, issue_reason, description, created_at)
+          SELECT ?, 'PENDING', ?, ?, ?, ?
+          WHERE NOT EXISTS (
+            SELECT 1 FROM maintenance_tasks 
+            WHERE facility_id = ? AND status IN ('PENDING', 'ASSIGNED', 'IN_PROGRESS') 
+            AND issue_reason = ?
+          )
+        `).run(facility.id, severity, taskReason, reason, new Date().toISOString(), facility.id, taskReason);
+
+        if (task.changes > 0) {
+          io.emit('maintenance_alert', {
+            id: task.lastInsertRowid,
+            facility_id: facility.id,
+            facility_name: facility.name,
+            alert_type: status === 'RED' ? 'CRITICAL_CLEANLINESS' : 'SUPPLY_LOW',
+            message: reason,
+            severity,
+            timestamp: new Date().toISOString()
+          });
+        }
       }
     }
   });

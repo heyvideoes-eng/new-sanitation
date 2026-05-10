@@ -108,11 +108,29 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         fetch(`${API_URL}/api/analytics/contracts/performance`, { headers: authHeader }).catch(() => ({ ok: false }))
       ]);
 
-      if (dashRes.ok) setGlobalStats(await (dashRes as Response).json());
-      else setGlobalStats(MOCK_STATS);
+      if (dashRes.ok) {
+        setGlobalStats(await (dashRes as Response).json());
+      } else {
+        setGlobalStats(MOCK_STATS);
+      }
 
-      if (alertsRes.ok) setAlerts(await (alertsRes as Response).json());
-      else setAlerts(MOCK_ALERTS as any);
+      if (alertsRes.ok) {
+        const alertsData = await (alertsRes as Response).json();
+        // Convert SQL results to AlertEvent interface if needed
+        setAlerts(alertsData.map((a: any) => ({
+          id: a.id,
+          facility_id: a.facility_id,
+          facility_name: a.facility_name,
+          task_type: a.priority === 'CRITICAL' ? 'Urgent Repair' : 'Cleaning Required',
+          priority: a.priority,
+          description: a.issue_reason,
+          created_at: a.created_at,
+          completed_at: a.completed_at,
+          status: a.status
+        })));
+      } else {
+        setAlerts(MOCK_ALERTS as any);
+      }
 
       if (budgetRes.ok) setBudgetSummary(await (budgetRes as Response).json());
       else setBudgetSummary(MOCK_BUDGET);
@@ -130,6 +148,10 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setRecommendation({ best: MOCK_FACILITIES[0], alternatives: MOCK_FACILITIES.slice(1) });
     }
   }, []);
+
+  const refreshData = useCallback(() => {
+    fetchInitial();
+  }, [fetchInitial]);
 
   const submitInspection = async (data: any) => {
     const res = await fetch(`${API_URL}/api/inspections/submit`, {
@@ -179,22 +201,33 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
 
     socket.on('maintenance_alert', (alert: any) => {
-      setAlerts(prev => [alert, ...prev].slice(0, 20));
+      setAlerts(prev => [{
+        id: alert.id,
+        facility_id: alert.facility_id,
+        facility_name: alert.facility_name || 'Unit ' + alert.facility_id,
+        task_type: alert.severity === 'CRITICAL' ? 'Urgent Repair' : 'Cleaning Required',
+        priority: alert.severity,
+        description: alert.message,
+        created_at: alert.timestamp,
+        completed_at: null,
+        status: 'PENDING'
+      }, ...prev].slice(0, 20));
       setLastUpdated(new Date());
     });
 
     socket.on('maintenance_update', (update: any) => {
       setAlerts(prev => prev.map(a => a.id === update.task_id ? { ...a, status: update.status, completed_at: update.completed_at, photo: update.photo, coords: update.coords } : a));
       if (update.status === 'COMPLETED') {
-        setFacilities(prev => prev.map(f => f.id === update.facility_id ? { ...f, status: 'OPEN' } : f));
+        setFacilities(prev => prev.map(f => f.id === update.facility_id ? { ...f, current_status: 'GREEN' } : f));
+        fetchInitial();
       }
       setLastUpdated(new Date());
     });
 
     // --- SIMULATION FALLBACK FOR VERCEL/DEMO ---
-    // If the socket isn't connected (common on Vercel), we simulate data so the UI isn't dead.
+    // Only simulate if not live and API failed (i.e. we have mock data)
     let simulationInterval: any;
-    if (!isLive) {
+    if (!isLive && facilities.length === MOCK_FACILITIES.length && facilities[0].name === MOCK_FACILITIES[0].name) {
       simulationInterval = setInterval(() => {
         setFacilities(prev => prev.map(f => {
           if (Math.random() > 0.7) {
@@ -223,7 +256,7 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       socket.off('maintenance_update');
       if (simulationInterval) clearInterval(simulationInterval);
     };
-  }, [fetchInitial, socket, isLive]);
+  }, [fetchInitial, socket, isLive, facilities.length]);
 
   return (
     <LiveDataContext.Provider value={{ 
@@ -235,6 +268,7 @@ export const LiveDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     </LiveDataContext.Provider>
   );
 };
+
 
 export const useLiveData = () => {
   const context = useContext(LiveDataContext);

@@ -3,22 +3,59 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Zap, Map as MapIcon, List, 
   Info, Clock, Star, Camera, Check, 
-  Users, Activity, ShieldCheck, MapPin 
+  Users, Activity, ShieldCheck, MapPin, RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLiveData } from '../context/LiveDataContext';
 import { useSearch } from '../context/SearchContext';
-import FacilityMap from '../components/Map/FacilityMap';
-import FacilityCard from '../components/UI/FacilityCard';
+import { API_URL } from '../lib/api';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const { facilities, recommendation, isLive, lastUpdated } = useLiveData();
+  const { showToast } = useToast();
   const { searchQuery } = useSearch();
   const [viewMode, setViewMode] = useState<'MAP' | 'LIST'>('MAP');
   const [selectedFacilityId, setSelectedFacilityId] = useState<number | null>(null);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [filter, setFilter] = useState('ALL');
+
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [selectedIssueType, setSelectedIssueType] = useState<string | null>(null);
+
+  const handleSubmitFeedback = async () => {
+    if (!selectedFacilityId || !selectedIssueType) return;
+    
+    setIsSubmittingFeedback(true);
+    showToast('Submitting your feedback...', 'info');
+    
+    try {
+      const res = await fetch(`${API_URL}/api/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          facility_id: selectedFacilityId,
+          rating: feedbackRating,
+          issue_type: selectedIssueType,
+          comment: `Reported via Home Portal: ${selectedIssueType}`,
+          lat: 30.27, // Simulated
+          lng: 78.00  // Simulated
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        showToast(data.task_triggered ? 'Report logged. Maintenance dispatched.' : 'Thank you for your feedback!', 'success');
+        setIsReportOpen(false);
+        setSelectedIssueType(null);
+      }
+    } catch (err) {
+      showToast('Submission failed', 'error');
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
 
   const selectedFacility = useMemo(() => 
     facilities.find(f => f.id === selectedFacilityId), 
@@ -376,16 +413,19 @@ const Home: React.FC = () => {
               className="relative w-full max-w-md bg-premium-bg p-8 rounded-[2rem] border border-white/10 shadow-2xl"
             >
               <h3 className="text-2xl font-bold text-white mb-2 tracking-tighter">Submit Feedback</h3>
-              <p className="text-xs text-premium-muted mb-8 uppercase tracking-widest font-medium">Step 1 of 3: Observations</p>
+              <p className="text-xs text-premium-muted mb-8 uppercase tracking-widest font-medium">
+                {selectedIssueType ? `Selected: ${selectedIssueType}` : 'Step 1 of 3: Observations'}
+              </p>
               
               <div className="space-y-4 mb-8">
                 {['General Hygiene', 'Water Supply', 'Broken Fixture', 'Soap/Tissue Missing'].map((type) => (
                   <button 
                     key={type}
-                    className="w-full p-4 text-left glass-panel border-white/5 hover:border-premium-accent/30 rounded-xl text-xs font-medium text-premium-text flex items-center justify-between group transition-all"
+                    onClick={() => setSelectedIssueType(type)}
+                    className={`w-full p-4 text-left glass-panel border-white/5 hover:border-premium-accent/30 rounded-xl text-xs font-medium flex items-center justify-between group transition-all ${selectedIssueType === type ? 'border-premium-accent/50 bg-premium-accent/10 text-premium-text' : 'text-premium-text'}`}
                   >
                     {type}
-                    <Zap size={12} className="text-premium-subtle group-hover:text-premium-accent transition-colors" />
+                    <Zap size={12} className={selectedIssueType === type ? 'text-premium-accent' : 'text-premium-subtle group-hover:text-premium-accent transition-colors'} />
                   </button>
                 ))}
               </div>
@@ -398,9 +438,12 @@ const Home: React.FC = () => {
                   Cancel
                 </button>
                 <button 
-                  className="flex-1 py-4 bg-premium-accent text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:brightness-110 transition-all shadow-lg shadow-premium-accent/20"
+                  onClick={handleSubmitFeedback}
+                  disabled={!selectedIssueType || isSubmittingFeedback}
+                  className="flex-1 py-4 bg-premium-accent text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:brightness-110 transition-all shadow-lg shadow-premium-accent/20 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  Continue
+                  {isSubmittingFeedback && <RefreshCw size={12} className="animate-spin" />}
+                  {isSubmittingFeedback ? 'Submitting...' : 'Submit Report'}
                 </button>
               </div>
             </motion.div>

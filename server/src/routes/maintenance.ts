@@ -97,11 +97,14 @@ router.put('/:id/complete', async (req, res) => {
     // MongoDB Persistence (if connected)
     if (mongoose.connection.readyState === 1) {
       try {
-        await MaintenanceTask.findByIdAndUpdate(id, {
-          status: 'COMPLETED',
-          completed_at: new Date(completed_at),
-          verification_photo: photo
-        });
+        // Find the task in Mongo by some unique property or just skip if ID mismatch
+        // For now, let's just log and skip to prevent crashes, or implement a proper mapping
+        const mTask = await MaintenanceTask.findOne({ issue_reason: task.issue_reason });
+        if (mTask) {
+          mTask.status = 'COMPLETED';
+          mTask.completed_at = new Date(completed_at);
+          await mTask.save();
+        }
       } catch (err) {
         console.warn('⚠️ [MongoDB] Completion sync failed');
       }

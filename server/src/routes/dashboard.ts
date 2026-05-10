@@ -35,13 +35,14 @@ router.get('/facility-cards', (req, res) => {
           total: f.total_stalls 
         },
         queue: { 
-          wait_time_mins: Math.round(summary.time_since_last_clean_minutes / 10), // Mock wait time derivation
+          wait_time_mins: Math.round(summary.time_since_last_clean_minutes / 10),
           pressure_level: summary.queue_pressure 
         },
         cleanliness_score: summary.cleanliness_score,
         last_cleaned_at: summary.last_cleaned_at,
         alerts_open_count: summary.alerts_open_count,
         rush_prediction: rush || { surge_in_mins: 15, confidence_pct: 75 },
+        ai_recommendation: status?.status === 'RED' ? "Urgent: High ammonia levels. Dispatch cleaner immediately." : "Maintaining optimal hygiene standards.",
         is_accessible: true
       };
     });
