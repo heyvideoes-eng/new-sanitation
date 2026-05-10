@@ -84,7 +84,7 @@ initSensorJob();
 initPredictiveJob();
 
 // 1. Basic Health Check
-app.get('/', (_req, res) => {
+app.get('/api/health', (_req, res) => {
   res.json({ 
     name: 'SAAF Intelligence Gateway', 
     status: 'online', 
@@ -130,8 +130,12 @@ const __dirname = path.dirname(__filename);
 
 if (process.env.NODE_ENV === 'production') {
   const clientBuildPath = path.join(__dirname, '..', '..', 'client', 'dist');
+  console.log(`Serving static files from: ${clientBuildPath}`);
   app.use(express.static(clientBuildPath));
-  app.get('*', (_req, res) => {
+  
+  // Handle SPA routing - must be LAST
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API route not found' });
     res.sendFile(path.join(clientBuildPath, 'index.html'));
   });
 }
