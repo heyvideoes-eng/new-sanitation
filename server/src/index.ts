@@ -130,13 +130,30 @@ const __dirname = path.dirname(__filename);
 
 if (process.env.NODE_ENV === 'production') {
   const clientBuildPath = path.join(__dirname, '..', '..', 'client', 'dist');
-  console.log(`Serving static files from: ${clientBuildPath}`);
+  const indexPath = path.join(clientBuildPath, 'index.html');
+  
+  console.log(`🌐 [Production]: Serving client from ${clientBuildPath}`);
+  
+  if (!fs.existsSync(indexPath)) {
+    console.error(`❌ [Critical]: Client build not found at ${indexPath}`);
+    console.log('Current directory structure:', fs.readdirSync(process.cwd()));
+    if (fs.existsSync(path.join(__dirname, '..', '..', 'client'))) {
+      console.log('Client folder contents:', fs.readdirSync(path.join(__dirname, '..', '..', 'client')));
+    }
+  }
+
   app.use(express.static(clientBuildPath));
   
-  // Handle SPA routing - must be LAST
   app.get('*', (req, res) => {
     if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API route not found' });
-    res.sendFile(path.join(clientBuildPath, 'index.html'));
+    if (!fs.existsSync(indexPath)) {
+      return res.status(500).json({ 
+        error: true, 
+        message: 'Client build missing. Please check build logs.',
+        path: indexPath 
+      });
+    }
+    res.sendFile(indexPath);
   });
 }
 
